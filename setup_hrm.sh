@@ -1,18 +1,18 @@
 #!/bin/bash
 # =============================================================
 #  setup_hrm.sh — HRM Pipeline (all-in-one)
-#  MySQL → Debezium → Kafka → Flink → Iceberg (Polaris) → Trino
+#  MySQL → Debezium → Kafka → Flink → Iceberg (HMS) → Trino
 # =============================================================
 set -e
 export MYSQL_PWD=123
 
 PROJECT="hrm"
 BUCKET="hrm"
-CATALOG="hrm"
 NAMESPACE="db_hrm"
 
 echo "============================================"
 echo "  HRM Pipeline: Cham cong Realtime"
+echo "  Catalog: Hive Metastore (HMS)"
 echo "============================================"
 echo ""
 
@@ -21,15 +21,27 @@ echo ">>> [1] Tai JARs can thiet..."
 wget -q -nc https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-aws-bundle/1.5.0/iceberg-aws-bundle-1.5.0.jar
 wget -q -nc https://repo1.maven.org/maven2/org/apache/flink/flink-shaded-hadoop-2-uber/2.8.3-10.0/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar
 wget -q -nc https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-flink-runtime-1.18/1.5.0/iceberg-flink-runtime-1.18-1.5.0.jar
+wget -q -nc https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.28/mysql-connector-java-8.0.28.jar
+wget -q -nc https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.0/hadoop-aws-3.1.0.jar
+wget -q -nc https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar
+wget -q -nc https://repo1.maven.org/maven2/org/apache/hive/hive-exec/3.1.3/hive-exec-3.1.3.jar
+wget -q -nc https://repo1.maven.org/maven2/org/apache/hive/hive-service-rpc/3.1.3/hive-service-rpc-3.1.3.jar
+wget -q -nc https://repo1.maven.org/maven2/org/apache/thrift/libfb303/0.9.3/libfb303-0.9.3.jar
 echo "  ✅ JARs da tai xong."
 
 echo ">>> [1b] Copy JARs vao Flink containers..."
 for CONTAINER in flink-jobmanager flink-taskmanager flink-sql-client; do
-  for JAR in iceberg-flink-runtime-1.18-1.5.0.jar iceberg-aws-bundle-1.5.0.jar flink-shaded-hadoop-2-uber-2.8.3-10.0.jar; do
+  for JAR in \
+    iceberg-flink-runtime-1.18-1.5.0.jar \
+    iceberg-aws-bundle-1.5.0.jar \
+    flink-shaded-hadoop-2-uber-2.8.3-10.0.jar \
+    hive-exec-3.1.3.jar \
+    hive-service-rpc-3.1.3.jar \
+    libfb303-0.9.3.jar; do
     docker cp "$JAR" "$CONTAINER:/opt/flink/lib/" 2>/dev/null || true
   done
+  echo "  ✅ $CONTAINER: JARs ready."
 done
-echo "  ✅ JARs san sang trong Flink."
 
 # ─── [2] MYSQL SCHEMA + DATA ──────────────────────────────────
 echo ">>> [2] Doi MySQL san sang..."
@@ -107,7 +119,6 @@ INSERT INTO attendance (emp_id, check_in, check_out, status) VALUES
   (8,  '2026-04-01 09:00:00', '2026-04-01 18:00:00', 'LATE'),
   (9,  '2026-04-01 08:00:00', '2026-04-01 17:00:00', 'ON_TIME'),
   (10, '2026-04-01 08:40:00', '2026-04-01 17:30:00', 'ON_TIME'),
-
   (1,  '2026-04-02 08:10:00', '2026-04-02 17:10:00', 'ON_TIME'),
   (2,  '2026-04-02 09:20:00', '2026-04-02 18:00:00', 'LATE'),
   (3,  '2026-04-02 08:00:00', '2026-04-02 17:00:00', 'ON_TIME'),
@@ -118,7 +129,6 @@ INSERT INTO attendance (emp_id, check_in, check_out, status) VALUES
   (8,  '2026-04-02 09:15:00', '2026-04-02 18:20:00', 'LATE'),
   (9,  '2026-04-02 08:00:00', '2026-04-02 17:00:00', 'ON_TIME'),
   (10, '2026-04-02 08:50:00', '2026-04-02 17:40:00', 'ON_TIME'),
-
   (1,  '2026-04-03 08:00:00', '2026-04-03 17:00:00', 'ON_TIME'),
   (2,  '2026-04-03 09:30:00', '2026-04-03 18:10:00', 'LATE'),
   (3,  '2026-04-03 08:10:00', '2026-04-03 17:20:00', 'ON_TIME'),
@@ -129,7 +139,6 @@ INSERT INTO attendance (emp_id, check_in, check_out, status) VALUES
   (8,  '2026-04-03 09:25:00', '2026-04-03 18:15:00', 'LATE'),
   (9,  '2026-04-03 08:05:00', '2026-04-03 17:05:00', 'ON_TIME'),
   (10, '2026-04-03 08:45:00', '2026-04-03 17:30:00', 'ON_TIME'),
-
   (1,  '2026-04-04 08:00:00', '2026-04-04 17:00:00', 'ON_TIME'),
   (2,  '2026-04-04 09:15:00', '2026-04-04 18:00:00', 'LATE'),
   (3,  '2026-04-04 08:00:00', '2026-04-04 17:00:00', 'ON_TIME'),
@@ -140,7 +149,6 @@ INSERT INTO attendance (emp_id, check_in, check_out, status) VALUES
   (8,  '2026-04-04 09:35:00', '2026-04-04 18:30:00', 'LATE'),
   (9,  '2026-04-04 08:00:00', '2026-04-04 17:00:00', 'ON_TIME'),
   (10, '2026-04-04 08:55:00', '2026-04-04 17:45:00', 'ON_TIME'),
-
   (1,  '2026-04-05 08:10:00', '2026-04-05 17:10:00', 'ON_TIME'),
   (2,  '2026-04-05 09:25:00', '2026-04-05 18:10:00', 'LATE'),
   (3,  '2026-04-05 08:05:00', '2026-04-05 17:00:00', 'ON_TIME'),
@@ -150,8 +158,7 @@ INSERT INTO attendance (emp_id, check_in, check_out, status) VALUES
   (7,  '2026-04-05 08:20:00', '2026-04-05 16:40:00', 'EARLY_LEAVE'),
   (8,  '2026-04-05 09:40:00', '2026-04-05 18:30:00', 'LATE'),
   (9,  '2026-04-05 08:00:00', '2026-04-05 17:00:00', 'ON_TIME'),
-  (10, '2026-04-05 08:50:00', '2026-04-05 17:30:00', 'ON_TIME')
-ON DUPLICATE KEY UPDATE status=VALUES(status);
+  (10, '2026-04-05 08:50:00', '2026-04-05 17:30:00', 'ON_TIME');
 
 TRUNCATE TABLE leave_requests;
 INSERT INTO leave_requests (emp_id, leave_type, start_date, end_date, days, status, reason) VALUES
@@ -180,34 +187,33 @@ INSERT INTO payroll (emp_id, month, base_salary, deduction, bonus, net_salary) V
   (10, '2026-04', 29000000, 0,      500000, 29500000);
 SQLEOF
 set -e
-echo "  ✅ MySQL: 4 bang hrm san sang (employees, attendance, leave_requests, payroll)."
-echo ""
+echo "  ✅ MySQL: 4 bang hrm san sang."
 
-# ─── [3] POLARIS TOKEN ────────────────────────────────────────
-echo ">>> [3] Cho Polaris khoi dong..."
-for i in $(seq 1 2); do
-  HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
-    http://localhost:8181/api/catalog/v1/oauth/tokens 2>/dev/null || true)
-  if [[ "$HTTP" == "400" || "$HTTP" == "401" || "$HTTP" == "200" ]]; then
-    echo "  ✅ Polaris san sang."; break
-  fi
-  echo "  ... cho Polaris (lan $i/20)..."; sleep 5
-done
+# ─── [3] HMS CHECK + START ────────────────────────────────────
+echo ">>> [3] Kiem tra Hive Metastore..."
+HMS_RUNNING=$(docker exec hive-metastore bash -c "echo > /dev/tcp/localhost/9083" 2>/dev/null && echo "yes" || echo "no")
 
-CREDENTIAL=$(docker logs polaris 2>&1 | grep -a "principal credentials" | tail -1 \
-  | grep -oP '[0-9a-f]{16}:[0-9a-f]{32}' | tail -1)
-if [ -z "$CREDENTIAL" ]; then echo "❌ Khong tim duoc credential."; exit 1; fi
-echo "  Credential: $CREDENTIAL"
+if [ "$HMS_RUNNING" = "yes" ]; then
+  echo "  ✅ HMS dang chay binh thuong, bo qua reset."
+else
+  echo "  HMS chua chay, reset va init lai..."
+  docker exec mysql mysql -uroot -p123 -e "
+    DROP DATABASE IF EXISTS hive_metastore;
+    CREATE DATABASE hive_metastore CHARACTER SET utf8mb4;
+  " 2>/dev/null
+  docker compose stop hive-metastore 2>/dev/null || true
+  sleep 3
+  docker compose up -d hive-metastore
+  echo "  ⏳ Cho HMS init schema va start..."
+  until docker exec hive-metastore bash -c "echo > /dev/tcp/localhost/9083" 2>/dev/null; do
+    echo -n "."; sleep 3
+  done
+  echo " OK!"
+fi
 
-TOKEN=$(curl -s -X POST \
-  -H "X-Polaris-Realm: POLARIS" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -u "$CREDENTIAL" \
-  -d "grant_type=client_credentials&scope=PRINCIPAL_ROLE:ALL" \
-  "http://localhost:8181/api/catalog/v1/oauth/tokens" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
-export CREDENTIAL TOKEN
-echo "  ✅ Token lay thanh cong."
+echo "  ✅ HMS san sang tai port 9083."
+
+
 
 # ─── [4] CLEANUP ──────────────────────────────────────────────
 echo ">>> [4] Don dep data cu..."
@@ -235,25 +241,31 @@ docker exec kafka kafka-topics --bootstrap-server kafka:9092 --list \
   | grep "schemahistory\.hrm\." \
   | xargs -I {} docker exec kafka kafka-topics --bootstrap-server kafka:9092 --delete --topic {} 2>/dev/null || true
 
-echo "  [Polaris] Xoa Iceberg tables..."
-for TABLE in employees attendance_analytics leave_requests payroll; do
-  HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
-    "http://localhost:8181/api/catalog/v1/${CATALOG}/namespaces/${NAMESPACE}/tables/${TABLE}" \
-    -H "Authorization: Bearer $TOKEN" -H "X-Polaris-Realm: POLARIS")
-  [ "$HTTP" = "204" ] && echo "    🗑️  Da xoa: ${NAMESPACE}.${TABLE}" || \
-    echo "    ℹ️  ${NAMESPACE}.${TABLE} chua ton tai."
-done
+echo "  [HMS] Xoa Iceberg tables & schema..."
+docker exec trino trino --user admin --execute "
+DROP TABLE IF EXISTS iceberg.${NAMESPACE}.employees;
+DROP TABLE IF EXISTS iceberg.${NAMESPACE}.attendance_analytics;
+DROP TABLE IF EXISTS iceberg.${NAMESPACE}.leave_requests;
+DROP TABLE IF EXISTS iceberg.${NAMESPACE}.payroll;
+DROP VIEW  IF EXISTS iceberg.${NAMESPACE}.attendance_summary;
+DROP VIEW  IF EXISTS iceberg.${NAMESPACE}.department_stats;
+DROP VIEW  IF EXISTS iceberg.${NAMESPACE}.late_ranking;
+DROP VIEW  IF EXISTS iceberg.${NAMESPACE}.leave_analysis;
+DROP VIEW  IF EXISTS iceberg.${NAMESPACE}.payroll_summary;
+DROP VIEW  IF EXISTS iceberg.${NAMESPACE}.overtime_report;
+" 2>/dev/null || true
+echo "    ✅ HMS tables/views da xoa."
 
-echo "  [MinIO] Don bucket hrm..."
+echo "  [MinIO] Don bucket ${BUCKET}..."
 wget -q -nc https://dl.min.io/client/mc/release/linux-amd64/mc
 chmod +x mc
 docker cp mc minio:/tmp/mc
 docker exec minio sh -c "
   /tmp/mc alias set local http://localhost:9000 admin password --api S3v4 2>/dev/null
-  /tmp/mc rm --recursive --force local/hrm/ 2>/dev/null || true
-  /tmp/mc mb local/hrm --ignore-existing 2>/dev/null
+  /tmp/mc rm --recursive --force local/${BUCKET}/ 2>/dev/null || true
+  /tmp/mc mb local/${BUCKET} --ignore-existing 2>/dev/null
 "
-echo "    ✅ MinIO bucket 'hrm' san sang."
+echo "    ✅ MinIO bucket '${BUCKET}' san sang."
 
 echo "  [Debezium] Xoa connectors cu..."
 OLD_CONNECTORS=$(curl -s http://localhost:8083/connectors \
@@ -263,19 +275,28 @@ for c in $OLD_CONNECTORS; do
   echo "    🗑️  Da xoa connector: $c"
 done
 sleep 2
-
 echo "  ✅ Don dep xong."
 echo ""
 
 # ─── [5] DEBEZIUM ─────────────────────────────────────────────
-echo ">>> [5] Doi Kafka Connect san sang..."
+echo ">>> [5] Restart Debezium va doi san sang..."
+docker restart debezium > /dev/null 2>&1
 until curl -s http://localhost:8083/connectors > /dev/null 2>&1; do
   echo -n "."; sleep 2
 done
 echo " OK!"
 
 RANDOM_ID=$((184000 + RANDOM % 1000))
-echo ">>> [5b] Dang ky Debezium connector (server.id=$RANDOM_ID)..."
+
+echo ">>> [5b] Tao schema history topic truoc..."
+docker exec kafka kafka-topics --bootstrap-server kafka:9092 \
+  --create --topic "schemahistory.hrm.${RANDOM_ID}" \
+  --partitions 1 --replication-factor 1 \
+  --config cleanup.policy=delete 2>/dev/null && \
+  echo "  ✅ Topic schemahistory.hrm.${RANDOM_ID} san sang." || \
+  echo "  ℹ️  Topic da ton tai."
+
+echo ">>> [5c] Dang ky Debezium connector (server.id=$RANDOM_ID)..."
 HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "http://localhost:8083/connectors/" \
   -H "Content-Type: application/json" \
@@ -301,118 +322,107 @@ HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
 [ "$HTTP" = "201" ] && echo "  ✅ Connector da dang ky (HTTP $HTTP)." || \
   echo "  ⚠️  HTTP $HTTP khi dang ky connector."
 
+echo "  ⏳ Cho connector task RUNNING..."
+for i in $(seq 1 20); do
+  sleep 5
+  TASK_STATE=$(curl -s "http://localhost:8083/connectors/hrm-connector-${RANDOM_ID}/status" \
+    | python3 -c "import sys,json; s=json.load(sys.stdin); print(s['tasks'][0]['state'] if s['tasks'] else 'STARTING')" 2>/dev/null || echo "STARTING")
+  echo -n "  [${i}] Task: $TASK_STATE"
+  if [ "$TASK_STATE" = "RUNNING" ]; then
+    echo " ✅"
+    break
+  elif [ "$TASK_STATE" = "FAILED" ]; then
+    echo " - Restart task..."
+    curl -s -X POST "http://localhost:8083/connectors/hrm-connector-${RANDOM_ID}/tasks/0/restart" > /dev/null
+  else
+    echo ""
+  fi
+done
+
 echo "  ⏳ Cho Kafka topic 'hrm.hrm.employees' xuat hien..."
 until docker exec kafka kafka-topics --bootstrap-server localhost:9092 --list | grep -q "hrm.hrm.employees"; do
   echo -n "."; sleep 2
 done
 echo " OK!"
 
-# ─── [6] POLARIS CATALOG ──────────────────────────────────────
-echo ">>> [6] Tao Polaris catalog '${CATALOG}'..."
-curl -s -X DELETE "http://localhost:8181/api/management/v1/catalogs/${CATALOG}" \
-  -H "X-Polaris-Realm: POLARIS" -H "Authorization: Bearer $TOKEN" > /dev/null || true
+# ─── [6] TRINO SCHEMA ─────────────────────────────────────────
+echo ">>> [6] Doi Trino san sang..."
+until docker exec trino trino --user admin --execute "SELECT 1" >/dev/null 2>&1; do
+  echo -n "."; sleep 3
+done
+echo " OK!"
 
-HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
-  -X POST "http://localhost:8181/api/management/v1/catalogs" \
-  -H "X-Polaris-Realm: POLARIS" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{\"catalog\":{\"type\":\"INTERNAL\",\"name\":\"${CATALOG}\",\"storageConfigInfo\":{\"storageType\":\"S3\",\"allowedLocations\":[\"s3://${BUCKET}/\"],\"pathStyleAccess\":true},\"properties\":{\"default-base-location\":\"s3://${BUCKET}/iceberg-data\",\"s3.endpoint\":\"http://minio:9000\",\"s3.path-style-access\":\"true\",\"s3.access-key-id\":\"admin\",\"s3.secret-access-key\":\"password\",\"client.region\":\"us-east-1\"}}}")
-case "$HTTP" in
-  201|400|409) echo "  ✅ Catalog '${CATALOG}' san sang." ;;
-  *) echo "  ⚠️  HTTP $HTTP khi tao catalog." ;;
-esac
-
-# ─── [6b] TRINO ───────────────────────────────────────────────
-echo ">>> [6b] Cap nhat Trino iceberg.properties + restart..."
-mkdir -p trino-conf
-cat > trino-conf/iceberg.properties << TRINOEOF
-connector.name=iceberg
-iceberg.catalog.type=rest
-iceberg.rest-catalog.uri=http://polaris-proxy:8282/api/catalog
-iceberg.rest-catalog.security=OAUTH2
-iceberg.rest-catalog.oauth2.token=${TOKEN}
-hive.s3.endpoint=http://minio:9000
-hive.s3.aws-access-key=admin
-hive.s3.aws-secret-key=password
-hive.s3.path-style-access=true
-hive.s3.ssl.enabled=false
-hive.s3.region=us-east-1
-TRINOEOF
-docker restart trino > /dev/null 2>&1
-echo "  ✅ Trino da restart."
+echo ">>> [6b] Tao Trino/HMS schema va Iceberg tables..."
+docker exec trino trino --user admin --execute "
+CREATE SCHEMA IF NOT EXISTS iceberg.${NAMESPACE}
+WITH (location = 's3a://${BUCKET}/iceberg-data/');
+" && echo "  ✅ Schema iceberg.${NAMESPACE} san sang."
 
 # ─── [7] FLINK SQL ────────────────────────────────────────────
-echo ">>> [7] Submit Flink SQL pipeline..."
+echo ">>> [7] Submit Flink SQL pipeline (dung HMS catalog)..."
 
 cat > /tmp/hrm_pipeline.sql << EOF
 SET 'execution.checkpointing.interval' = '10s';
 SET 'table.exec.sink.upsert-materialize' = 'AUTO';
 
+-- ── Tao Iceberg catalog dung HMS ──────────────────────────────
 DROP CATALOG IF EXISTS hrm_catalog;
 CREATE CATALOG hrm_catalog WITH (
-  'type'                 = 'iceberg',
-  'catalog-impl'         = 'org.apache.iceberg.rest.RESTCatalog',
-  'uri'                  = 'http://polaris:8181/api/catalog',
-  'credential'           = '${CREDENTIAL}',
-  'warehouse'            = 'hrm',
-  'scope'                = 'PRINCIPAL_ROLE:ALL',
-  'io-impl'              = 'org.apache.iceberg.aws.s3.S3FileIO',
-  's3.endpoint'          = 'http://minio:9000',
-  's3.region'            = 'us-east-1',
+  'type'              = 'iceberg',
+  'catalog-type'      = 'hive',
+  'uri'               = 'thrift://$(docker inspect hive-metastore | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['NetworkSettings']['Networks']['student_default']['IPAddress'])"):9083',
+  'warehouse'         = 's3a://${BUCKET}/iceberg-data',
+  'io-impl'           = 'org.apache.iceberg.aws.s3.S3FileIO',
+  's3.endpoint'       = 'http://minio:9000',
+  's3.region'         = 'us-east-1',
   's3.path-style-access' = 'true',
-  's3.access-key-id'     = 'admin',
-  's3.secret-access-key' = 'password',
-  'client.region'        = 'us-east-1'
+  's3.access-key-id'  = 'admin',
+  's3.secret-access-key' = 'password'
 );
 
 USE CATALOG hrm_catalog;
-CREATE DATABASE IF NOT EXISTS db_hrm;
+CREATE DATABASE IF NOT EXISTS ${NAMESPACE};
 
 -- ── Iceberg: employees ────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS db_hrm.employees (
+CREATE TABLE IF NOT EXISTS ${NAMESPACE}.employees (
   emp_id INT, name STRING, department STRING, salary DOUBLE,
   PRIMARY KEY (emp_id) NOT ENFORCED
 ) WITH (
-  'write.upsert.enabled'             = 'true',
-  'format-version'                   = '2',
-  'write.parquet.column-ids-enabled' = 'false'
+  'write.upsert.enabled' = 'true',
+  'format-version'       = '2'
 );
 
 -- ── Iceberg: attendance_analytics ─────────────────────────────
-CREATE TABLE IF NOT EXISTS db_hrm.attendance_analytics (
+CREATE TABLE IF NOT EXISTS ${NAMESPACE}.attendance_analytics (
   id INT, emp_id INT, check_in BIGINT, check_out BIGINT,
   work_hours DOUBLE, status STRING, is_late BOOLEAN,
   overtime_hours DOUBLE, shift_label STRING,
   PRIMARY KEY (id) NOT ENFORCED
 ) WITH (
-  'write.upsert.enabled'             = 'true',
-  'format-version'                   = '2',
-  'write.parquet.column-ids-enabled' = 'false'
+  'write.upsert.enabled' = 'true',
+  'format-version'       = '2'
 );
 
 -- ── Iceberg: leave_requests ───────────────────────────────────
-CREATE TABLE IF NOT EXISTS db_hrm.leave_requests (
+CREATE TABLE IF NOT EXISTS ${NAMESPACE}.leave_requests (
   id INT, emp_id INT, leave_type STRING,
   start_date INT, end_date INT, days INT,
   status STRING, reason STRING,
   PRIMARY KEY (id) NOT ENFORCED
 ) WITH (
-  'write.upsert.enabled'             = 'true',
-  'format-version'                   = '2',
-  'write.parquet.column-ids-enabled' = 'false'
+  'write.upsert.enabled' = 'true',
+  'format-version'       = '2'
 );
 
 -- ── Iceberg: payroll ──────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS db_hrm.payroll (
+CREATE TABLE IF NOT EXISTS ${NAMESPACE}.payroll (
   id INT, emp_id INT, \`month\` STRING,
   base_salary DOUBLE, deduction DOUBLE, bonus DOUBLE, net_salary DOUBLE,
   insurance_amt DOUBLE, tax_amount DOUBLE, take_home DOUBLE,
   PRIMARY KEY (id) NOT ENFORCED
 ) WITH (
-  'write.upsert.enabled'             = 'true',
-  'format-version'                   = '2',
-  'write.parquet.column-ids-enabled' = 'false'
+  'write.upsert.enabled' = 'true',
+  'format-version'       = '2'
 );
 
 USE CATALOG default_catalog;
@@ -479,10 +489,10 @@ CREATE TABLE payroll_kafka (
 );
 
 -- ── INSERTs ───────────────────────────────────────────────────
-INSERT INTO hrm_catalog.db_hrm.employees
+INSERT INTO hrm_catalog.${NAMESPACE}.employees
 SELECT emp_id, name, department, salary FROM employees_kafka;
 
-INSERT INTO hrm_catalog.db_hrm.attendance_analytics
+INSERT INTO hrm_catalog.${NAMESPACE}.attendance_analytics
 SELECT
   id, emp_id, check_in, check_out,
   CASE
@@ -516,12 +526,12 @@ SELECT
 FROM attendance_kafka
 WHERE emp_id IS NOT NULL;
 
-INSERT INTO hrm_catalog.db_hrm.leave_requests
+INSERT INTO hrm_catalog.${NAMESPACE}.leave_requests
 SELECT id, emp_id, leave_type, start_date, end_date, days, status, reason
 FROM leave_requests_kafka
 WHERE emp_id IS NOT NULL;
 
-INSERT INTO hrm_catalog.db_hrm.payroll
+INSERT INTO hrm_catalog.${NAMESPACE}.payroll
 SELECT
   id, emp_id, \`month\`, base_salary, deduction, bonus, net_salary,
   CAST(base_salary * 0.105 AS DOUBLE) AS insurance_amt,
@@ -548,6 +558,12 @@ FROM payroll_kafka
 WHERE emp_id IS NOT NULL;
 EOF
 
+
+# Lay IP cua HMS va thay the trong pipeline SQL
+HMS_IP=$(docker inspect hive-metastore | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['NetworkSettings']['Networks']['student_default']['IPAddress'])")
+echo "  HMS IP: $HMS_IP"
+sed -i "s|thrift://hive-metastore:9083|thrift://${HMS_IP}:9083|g" /tmp/hrm_pipeline.sql
+sed -i "s|thrift://[0-9.]*:9083|thrift://${HMS_IP}:9083|g" /tmp/hrm_pipeline.sql
 docker cp /tmp/hrm_pipeline.sql flink-sql-client:/tmp/hrm_pipeline.sql
 docker exec -i flink-sql-client ./bin/sql-client.sh \
   -Djobmanager.rpc.address=flink-jobmanager \
@@ -557,64 +573,19 @@ docker exec -i flink-sql-client ./bin/sql-client.sh \
   -f /tmp/hrm_pipeline.sql
 echo "  ✅ Flink SQL da submit."
 
-# ─── [8] TRINO TABLES & VIEWS ─────────────────────────────────
+# ─── [8] TRINO VIEWS ──────────────────────────────────────────
 echo ">>> [8] Cho Flink checkpoint dau tien (90s)..."
 sleep 90
 
-echo ">>> [8b] Tao MinIO placeholder dirs..."
-docker exec minio sh -c "
-  for DIR in employees attendance_analytics leave_requests payroll; do
-    echo '' | /tmp/mc pipe local/hrm/iceberg-data/db_hrm/\$DIR/data/.keep 2>/dev/null || true
-  done
-"
-
-echo ">>> [8c] Doi Trino san sang..."
-until docker exec trino trino --user admin --execute "SELECT 1" > /dev/null 2>&1; do
-  echo -n "."; sleep 3
-done
-echo " OK!"
-
-echo ">>> [8d] Tao Trino tables & views..."
+echo ">>> [8b] Tao Trino views..."
 docker exec trino trino --user admin --execute "
-CREATE SCHEMA IF NOT EXISTS minio.db_hrm;
-
-DROP VIEW  IF EXISTS minio.db_hrm.overtime_report;
-DROP VIEW  IF EXISTS minio.db_hrm.payroll_summary;
-DROP VIEW  IF EXISTS minio.db_hrm.leave_analysis;
-DROP VIEW  IF EXISTS minio.db_hrm.late_ranking;
-DROP VIEW  IF EXISTS minio.db_hrm.department_stats;
-DROP VIEW  IF EXISTS minio.db_hrm.attendance_summary;
-DROP TABLE IF EXISTS minio.db_hrm.payroll;
-DROP TABLE IF EXISTS minio.db_hrm.leave_requests;
-DROP TABLE IF EXISTS minio.db_hrm.attendance;
-DROP TABLE IF EXISTS minio.db_hrm.employees;
-
-CREATE TABLE minio.db_hrm.employees (
-  emp_id INTEGER, name VARCHAR, department VARCHAR, salary DOUBLE
-) WITH (external_location = 's3://hrm/iceberg-data/db_hrm/employees/data/', format = 'PARQUET');
-
-CREATE TABLE minio.db_hrm.attendance (
-  id INTEGER, emp_id INTEGER, check_in BIGINT, check_out BIGINT,
-  work_hours DOUBLE, status VARCHAR, is_late BOOLEAN, overtime_hours DOUBLE, shift_label VARCHAR
-) WITH (external_location = 's3://hrm/iceberg-data/db_hrm/attendance_analytics/data/', format = 'PARQUET');
-
-CREATE TABLE minio.db_hrm.leave_requests (
-  id INTEGER, emp_id INTEGER, leave_type VARCHAR,
-  start_date INTEGER, end_date INTEGER, days INTEGER, status VARCHAR, reason VARCHAR
-) WITH (external_location = 's3://hrm/iceberg-data/db_hrm/leave_requests/data/', format = 'PARQUET');
-
-CREATE TABLE minio.db_hrm.payroll (
-  id INTEGER, emp_id INTEGER, month VARCHAR,
-  base_salary DOUBLE, deduction DOUBLE, bonus DOUBLE, net_salary DOUBLE,
-  insurance_amt DOUBLE, tax_amount DOUBLE, take_home DOUBLE
-) WITH (external_location = 's3://hrm/iceberg-data/db_hrm/payroll/data/', format = 'PARQUET');
-
-CREATE VIEW minio.db_hrm.attendance_summary AS
+CREATE OR REPLACE VIEW iceberg.${NAMESPACE}.attendance_summary AS
 SELECT e.emp_id, e.name, e.department, a.status, a.work_hours, a.check_in, a.check_out
-FROM minio.db_hrm.attendance a JOIN minio.db_hrm.employees e ON a.emp_id = e.emp_id
+FROM iceberg.${NAMESPACE}.attendance_analytics a
+JOIN iceberg.${NAMESPACE}.employees e ON a.emp_id = e.emp_id
 WHERE a.emp_id IS NOT NULL AND e.name IS NOT NULL AND e.name <> '';
 
-CREATE VIEW minio.db_hrm.department_stats AS
+CREATE OR REPLACE VIEW iceberg.${NAMESPACE}.department_stats AS
 SELECT e.department,
   COUNT(DISTINCT e.emp_id)                                   AS employee_count,
   COUNT(a.id)                                                AS total_sessions,
@@ -622,11 +593,12 @@ SELECT e.department,
   SUM(CASE WHEN a.status = 'LATE'        THEN 1 ELSE 0 END) AS late_count,
   SUM(CASE WHEN a.status = 'ON_TIME'     THEN 1 ELSE 0 END) AS on_time_count,
   SUM(CASE WHEN a.status = 'EARLY_LEAVE' THEN 1 ELSE 0 END) AS early_leave_count
-FROM minio.db_hrm.attendance a JOIN minio.db_hrm.employees e ON a.emp_id = e.emp_id
+FROM iceberg.${NAMESPACE}.attendance_analytics a
+JOIN iceberg.${NAMESPACE}.employees e ON a.emp_id = e.emp_id
 WHERE a.emp_id IS NOT NULL AND e.name IS NOT NULL AND e.name <> ''
 GROUP BY e.department ORDER BY late_count DESC;
 
-CREATE VIEW minio.db_hrm.late_ranking AS
+CREATE OR REPLACE VIEW iceberg.${NAMESPACE}.late_ranking AS
 SELECT e.emp_id, e.name, e.department,
   COUNT(*)                                                   AS total_days,
   SUM(CASE WHEN a.status = 'LATE'        THEN 1 ELSE 0 END) AS late_days,
@@ -637,22 +609,24 @@ SELECT e.emp_id, e.name, e.department,
     WHEN SUM(CASE WHEN a.status = 'LATE' THEN 1 ELSE 0 END) >= 2 THEN 'WARNING'
     ELSE 'GOOD'
   END AS discipline_tier
-FROM minio.db_hrm.attendance a JOIN minio.db_hrm.employees e ON a.emp_id = e.emp_id
+FROM iceberg.${NAMESPACE}.attendance_analytics a
+JOIN iceberg.${NAMESPACE}.employees e ON a.emp_id = e.emp_id
 WHERE a.emp_id IS NOT NULL AND e.name IS NOT NULL AND e.name <> ''
 GROUP BY e.emp_id, e.name, e.department ORDER BY late_days DESC;
 
-CREATE VIEW minio.db_hrm.leave_analysis AS
+CREATE OR REPLACE VIEW iceberg.${NAMESPACE}.leave_analysis AS
 SELECT e.emp_id, e.name, e.department,
   COUNT(l.id)                                                  AS total_requests,
   SUM(CASE WHEN l.status = 'approved' THEN l.days ELSE 0 END) AS approved_days,
   SUM(CASE WHEN l.leave_type = 'sick'   THEN 1 ELSE 0 END)    AS sick_requests,
   SUM(CASE WHEN l.leave_type = 'annual' THEN 1 ELSE 0 END)    AS annual_requests,
   SUM(CASE WHEN l.status = 'pending'  THEN 1 ELSE 0 END)      AS pending_requests
-FROM minio.db_hrm.leave_requests l JOIN minio.db_hrm.employees e ON l.emp_id = e.emp_id
+FROM iceberg.${NAMESPACE}.leave_requests l
+JOIN iceberg.${NAMESPACE}.employees e ON l.emp_id = e.emp_id
 WHERE e.name IS NOT NULL AND e.name <> ''
 GROUP BY e.emp_id, e.name, e.department ORDER BY approved_days DESC;
 
-CREATE VIEW minio.db_hrm.payroll_summary AS
+CREATE OR REPLACE VIEW iceberg.${NAMESPACE}.payroll_summary AS
 SELECT e.department,
   ROUND(AVG(p.base_salary), 0)   AS avg_base_salary,
   ROUND(AVG(p.insurance_amt), 0) AS avg_insurance,
@@ -660,43 +634,41 @@ SELECT e.department,
   ROUND(AVG(p.net_salary), 0)    AS avg_net_salary,
   ROUND(AVG(p.take_home), 0)     AS avg_take_home,
   ROUND(SUM(p.take_home), 0)     AS total_take_home
-FROM minio.db_hrm.payroll p JOIN minio.db_hrm.employees e ON p.emp_id = e.emp_id
+FROM iceberg.${NAMESPACE}.payroll p
+JOIN iceberg.${NAMESPACE}.employees e ON p.emp_id = e.emp_id
 WHERE e.name IS NOT NULL AND e.name <> ''
 GROUP BY e.department ORDER BY total_take_home DESC;
 
-CREATE VIEW minio.db_hrm.overtime_report AS
+CREATE OR REPLACE VIEW iceberg.${NAMESPACE}.overtime_report AS
 SELECT e.emp_id, e.name, e.department,
   ROUND(SUM(a.overtime_hours), 2)                         AS total_ot_hours,
   COUNT(CASE WHEN a.overtime_hours > 0 THEN 1 END)        AS ot_days,
   COUNT(CASE WHEN a.is_late = TRUE THEN 1 END)            AS late_by_flag,
   COUNT(CASE WHEN a.shift_label = 'MORNING'   THEN 1 END) AS morning_days,
   COUNT(CASE WHEN a.shift_label = 'AFTERNOON' THEN 1 END) AS afternoon_days
-FROM minio.db_hrm.attendance a JOIN minio.db_hrm.employees e ON a.emp_id = e.emp_id
+FROM iceberg.${NAMESPACE}.attendance_analytics a
+JOIN iceberg.${NAMESPACE}.employees e ON a.emp_id = e.emp_id
 WHERE a.emp_id IS NOT NULL AND e.name IS NOT NULL AND e.name <> ''
 GROUP BY e.emp_id, e.name, e.department ORDER BY total_ot_hours DESC;
-
-SELECT 'employees'        AS tbl, COUNT(*) AS rows FROM minio.db_hrm.employees
-UNION ALL SELECT 'attendance_raw',     COUNT(*) FROM minio.db_hrm.attendance
-UNION ALL SELECT 'leave_requests_raw', COUNT(*) FROM minio.db_hrm.leave_requests
-UNION ALL SELECT 'payroll_raw',        COUNT(*) FROM minio.db_hrm.payroll;
-" && echo "  ✅ Trino tables & views san sang." || echo "  ⚠️ Xem lai Trino."
+" && echo "  ✅ Trino views san sang." || echo "  ⚠️ Xem lai Trino views."
 
 echo ""
 echo "============================================"
 echo "  ✅ HRM Pipeline da khoi chay!"
+echo "  Catalog: Hive Metastore (HMS) ✅"
+echo "  Token expire: Khong con van de ✅"
 echo "============================================"
 echo "  Flink UI  : http://localhost:8081"
 echo "  MinIO     : http://localhost:9001  (admin/password)"
 echo "  Kafka UI  : http://localhost:8089"
 echo "  Trino     : http://localhost:8080"
 echo "  Superset  : http://localhost:8088"
+echo "  HMS       : thrift://localhost:9083"
 echo ""
-echo "  Superset URI: trino://admin@trino:8080/minio/db_hrm"
+echo "  Superset URI: trino://admin@trino:8080/iceberg.${NAMESPACE}"
 echo ""
 echo "Kiem tra analytics:"
-echo "  docker exec trino trino --user admin --execute \"SELECT * FROM minio.db_hrm.late_ranking\""
-echo "  docker exec trino trino --user admin --execute \"SELECT * FROM minio.db_hrm.department_stats\""
-echo "  docker exec trino trino --user admin --execute \"SELECT * FROM minio.db_hrm.leave_analysis\""
-echo "  docker exec trino trino --user admin --execute \"SELECT * FROM minio.db_hrm.payroll_summary\""
-echo ""
-echo "Chay demo realtime: ./demo_hrm.sh"
+echo "  docker exec trino trino --user admin --execute \"SELECT * FROM iceberg.${NAMESPACE}.late_ranking\""
+echo "  docker exec trino trino --user admin --execute \"SELECT * FROM iceberg.${NAMESPACE}.department_stats\""
+echo "  docker exec trino trino --user admin --execute \"SELECT * FROM iceberg.${NAMESPACE}.leave_analysis\""
+echo "  docker exec trino trino --user admin --execute \"SELECT * FROM iceberg.${NAMESPACE}.payroll_summary\""
