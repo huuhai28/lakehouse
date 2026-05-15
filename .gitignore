@@ -28,6 +28,20 @@ lakehouse/nohup.out
 lakehouse/sanitizer.log
 lakehouse/field.log
 
+# ── Backup / Temp / Junk files ──
+*.bak
+*.save
+*.bak.*
+dock.save
+nohup.out
+*.zip
+mc
+*.jar.1
+*.jar.2
+iceberg-connect-plugin/
+iceberg-kafka-connect/
+iceberg-bundle.zip
+
 # ── OS rác ──
 .DS_Store
 Thumbs.db

@@ -1,10 +1,34 @@
-# Ignore all JAR files
-*.jar
+# 1. Chặn toàn bộ trước
+/*
 
-# Ignore plugin directories with many JARs
-iceberg-connect-plugin/
+# 2. Mở cửa cho các thư mục chính
+!/flink/
+!/lakehouse/
+!/student/
+!/README.md
+!/.gitignore
 
-# Keep generated SQL and configs
-!*.sql
-!*.xml
-!*.properties
+# 3. Trong thư mục 'lakehouse': Chặn hết, chỉ giữ lại file bạn chọn
+/lakehouse/*
+!/lakehouse/field.py
+!/lakehouse/pipeline_common.sh
+!/lakehouse/deploy_platform.sh
+!/lakehouse/submit_flink.sh
+!/lakehouse/*.jar
+# Chặn các file jar rác (đuôi .1, .2, .bak)
+/lakehouse/*.jar.*
+/lakehouse/*.bak
+
+# 4. Trong thư mục 'student': Chặn hết, chỉ giữ lại...
+/student/*
+!/student/docker-compose.yml
+!/student/iceberg-kafka-connect/
+!/student/*.jar
+
+# 5. Chặn các file rác phát sinh trong các thư mục được mở
+**/__pycache__/
+**/venv/
+**/*.log
+**/*.bak
+**/*.save
+**/.env
