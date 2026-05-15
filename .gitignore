@@ -1,22 +1,43 @@
-# Ignore all JAR files in both lakehouse and student directories
+# ── JAR files (tải tự động khi deploy, không cần lưu Git) ──
 *.jar
-
-# Ignore directories with many JARs
+*.jar.*
 lakehouse/iceberg-connect-plugin/
+lakehouse/jars/
 student/iceberg-kafka-connect/
 student/iceberg-kafka-connect.bak/
 student/iceberg-hive-tmp/
 student/iceberg-backup/
 student/trash_jars/
 
-# Keep important files
+# ── Bảo mật: KHÔNG push file chứa mật khẩu ──
+.env
+**/.env
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+lakehouse/venv/
+student/venv/
+
+# ── Generated / Runtime files ──
+lakehouse/logs/
+lakehouse/generated/
+lakehouse/*.log
+lakehouse/nohup.out
+lakehouse/sanitizer.log
+lakehouse/field.log
+
+# ── OS rác ──
+.DS_Store
+Thumbs.db
+
+# ── Keep important source files ──
 !*.sql
 !*.sh
 !*.py
 !*.xml
 !*.properties
-!*.env
-
 
 # Loại bỏ các thư mục JAR rác và backup
 student/iceberg-backup/
