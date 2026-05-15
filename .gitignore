@@ -16,3 +16,23 @@ student/trash_jars/
 !*.xml
 !*.properties
 !*.env
+
+
+# Loại bỏ các thư mục JAR rác và backup
+student/iceberg-backup/
+student/trash_jars/
+# Chặn tất cả các file JAR khác để repo nhẹ hơn
+# (Các script setup_hrm.sh sẽ tự tải JAR khi chạy)
+*.jar
+lakehouse/jars/
+lakehouse/venv/
+lakehouse/logs/
+lakehouse/generated/
+student/venv/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+# OS rác
+.DS_Store
+Thumbs.db
