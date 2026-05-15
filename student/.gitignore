@@ -1,0 +1,15 @@
+# Ignore all JAR files
+*.jar
+
+# Ignore backup and temp directories with JARs
+iceberg-kafka-connect/
+iceberg-kafka-connect.bak/
+iceberg-hive-tmp/
+iceberg-backup/
+trash_jars/
+
+# Keep generated SQL and configs
+!*.sql
+!*.sh
+!*.py
+!*.properties

@@ -1,0 +1,18 @@
+# Ignore all JAR files in both lakehouse and student directories
+*.jar
+
+# Ignore directories with many JARs
+lakehouse/iceberg-connect-plugin/
+student/iceberg-kafka-connect/
+student/iceberg-kafka-connect.bak/
+student/iceberg-hive-tmp/
+student/iceberg-backup/
+student/trash_jars/
+
+# Keep important files
+!*.sql
+!*.sh
+!*.py
+!*.xml
+!*.properties
+!*.env

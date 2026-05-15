@@ -1,0 +1,67 @@
+from unidecode import unidecode
+import json, re, os, logging
+from kafka import KafkaConsumer, KafkaProducer
+from kafka.admin import KafkaAdminClient, NewTopic
+from kafka.errors import TopicAlreadyExistsError
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+log = logging.getLogger(__name__)
+
+BOOTSTRAP = 'localhost:9092'
+SRC_PREFIX = 'topic_datalakehouse.datalakehouse.'
+DST_PREFIX = 'iceberg_v9.datalakehouse.'
+GROUP_ID = 'field-sanitizer-group-v9'
+
+VN_REPLACEMENTS = {'\u00e0':'a','\u00e1':'a','\u00e2':'a','\u00e3':'a','\u00e4':'a','\u00e5':'a','\u0103':'a','\u1eaf':'a','\u1eb1':'a','\u1eb7':'a','\u1eb3':'a','\u1eb5':'a','\u1ea7':'a','\u1ea5':'a','\u1ead':'a','\u1ea9':'a','\u1eab':'a','\u00e8':'e','\u00e9':'e','\u00ea':'e','\u00eb':'e','\u1ec1':'e','\u1ebf':'e','\u1ec7':'e','\u1ec3':'e','\u1ec5':'e','\u00ec':'i','\u00ed':'i','\u00ee':'i','\u00ef':'i','\u00f2':'o','\u00f3':'o','\u00f4':'o','\u00f5':'o','\u00f6':'o','\u1ed3':'o','\u1ed1':'o','\u1ed9':'o','\u1ed5':'o','\u1ed7':'o','\u01a1':'o','\u1edd':'o','\u1edb':'o','\u1ee3':'o','\u1edf':'o','\u1ee1':'o','\u00f9':'u','\u00fa':'u','\u00fb':'u','\u00fc':'u','\u01b0':'u','\u1eeb':'u','\u1ee9':'u','\u1ef1':'u','\u1eed':'u','\u1ee7':'u','\u1ee5':'u','\u1eef':'u','\u1ef3':'y','\u00fd':'y','\u1ef7':'y','\u1ef9':'y','\u1ef5':'y','\u0111':'d','\u00c0':'A','\u00c1':'A','\u00c2':'A','\u00c3':'A','\u00c8':'E','\u00c9':'E','\u00ca':'E','\u00cc':'I','\u00cd':'I','\u00d2':'O','\u00d3':'O','\u00d4':'O','\u00d5':'O','\u00d9':'U','\u00da':'U','\u0110':'D'}
+
+def sanitize(name):
+    if not name: return name
+    res = unidecode(name)
+    res = re.sub(r'[^a-zA-Z0-9_]', '_', res)
+    res = re.sub(r'_+', '_', res).strip('_')
+    if res and res[0].isdigit():
+        res = 'col_' + res
+    return res.lower() if res else 'col'
+
+def transform_message(v, t):
+    if not v: return v
+    try:
+        m = json.loads(v.decode('utf-8'))
+        s = m.get('schema', {}); p = m.get('payload', {})
+	tbl = t.split('.')[-1]
+        f_map = {}
+        n_fields = []
+        for f in s.get('fields', []):
+            if f.get('field') in ('after', 'before') and f.get('type') == 'struct':
+                n_struct_fields = []
+                for sf in f.get('fields', []):
+                    old_n = sf.get('field'); new_n = sanitize(old_n)
+                    f_map[old_n] = new_n
+                    nf = dict(sf); nf['field'] = new_n; n_struct_fields.append(nf)
+                n_struct_fields.append({"type": "string", "optional": True, "field": "target_table"})
+                nf = dict(f); nf['fields'] = n_struct_fields; n_fields.append(nf)
+            else: n_fields.append(f)
+        n_s = dict(s); n_s['fields'] = n_fields; n_p = dict(p)
+        for st in ['after', 'before']:
+            if st in p and p[st]:
+                n_p[st] = {f_map.get(k, k): val for k, val in p[st].items()}
+                n_p[st]['target_table'] = tbl
+        return json.dumps({'schema': n_s, 'payload': n_p}, ensure_ascii=False).encode('utf-8')
+    except: return v
+
+def main():
+    consumer = KafkaConsumer(bootstrap_servers=BOOTSTRAP, group_id=GROUP_ID, auto_offset_reset='earliest')
+    producer = KafkaProducer(bootstrap_servers=BOOTSTRAP)
+    admin = KafkaAdminClient(bootstrap_servers=BOOTSTRAP)
+    consumer.subscribe(pattern=re.compile(f'^{re.escape(SRC_PREFIX)}.*'))
+    log.info("STARTING V9")
+    for msg in consumer:
+        try:
+            dt = msg.topic.replace(SRC_PREFIX.rstrip('.'), DST_PREFIX.rstrip('.'), 1)
+            try: admin.create_topics([NewTopic(name=dt, num_partitions=1, replication_factor=1)])
+            except: pass
+            producer.send(dt, value=transform_message(msg.value, msg.topic))
+            if msg.offset % 500 == 0: log.info(f"V9 Processed {msg.offset}")
+        except: pass
+
+if __name__ == '__main__': main()

@@ -1,0 +1,10 @@
+# Ignore all JAR files
+*.jar
+
+# Ignore plugin directories with many JARs
+iceberg-connect-plugin/
+
+# Keep generated SQL and configs
+!*.sql
+!*.xml
+!*.properties
