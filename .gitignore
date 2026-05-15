@@ -1,73 +1,44 @@
-# ── JAR files (tải tự động khi deploy, không cần lưu Git) ──
-*.jar
-*.jar.*
-lakehouse/iceberg-connect-plugin/
-lakehouse/jars/
-student/iceberg-kafka-connect/
-student/iceberg-kafka-connect.bak/
-student/iceberg-hive-tmp/
-student/iceberg-backup/
-student/trash_jars/
+# 1. Chặn toàn bộ
+/*
 
-# ── Bảo mật: KHÔNG push file chứa mật khẩu ──
-.env
+# 2. Mở cửa cho các file quản lý ở gốc
+!/.gitignore
+!/README.md
+!/find_unused_jars.sh
+!/Flink/
+!/lakehouse/
+!/student/
+
+# 3. Thư mục /lakehouse/: Chỉ giữ script và 13 JAR chính
+/lakehouse/*
+!/lakehouse/field.py
+!/lakehouse/pipeline_common.sh
+!/lakehouse/deploy_platform.sh
+!/lakehouse/submit_flink.sh
+
+# WHITELIST 13 JAR (Dựa trên script find_unused)
+!/lakehouse/iceberg-kafka-connect-runtime-*.jar
+!/lakehouse/iceberg-aws-bundle-*.jar
+!/lakehouse/hadoop-common-*.jar
+!/lakehouse/httpclient5-*.jar
+!/lakehouse/iceberg-flink-runtime-*.jar
+!/lakehouse/flink-sql-connector-kafka-*.jar
+!/lakehouse/flink-shaded-hadoop-*.jar
+!/lakehouse/mysql-connector-*.jar
+!/lakehouse/caffeine-*.jar
+!/lakehouse/stax2-api-*.jar
+!/lakehouse/woodstox-core-*.jar
+!/lakehouse/commons-configuration2-*.jar
+!/lakehouse/commons-collections-*.jar
+
+# 4. Thư mục /student/: Chỉ giữ docker-compose
+/student/*
+!/student/docker-compose.yml
+
+# 5. Chặn rác tuyệt đối
+**/*.log
+**/*.bak
+**/*.save
 **/.env
-
-# ── Python ──
-__pycache__/
-*.py[cod]
-*$py.class
-lakehouse/venv/
-student/venv/
-
-# ── Generated / Runtime files ──
-lakehouse/logs/
-lakehouse/generated/
-lakehouse/*.log
-lakehouse/nohup.out
-lakehouse/sanitizer.log
-lakehouse/field.log
-
-# ── Backup / Temp / Junk files ──
-*.bak
-*.save
-*.bak.*
-dock.save
-nohup.out
-*.zip
-mc
-*.jar.1
-*.jar.2
-iceberg-connect-plugin/
-iceberg-kafka-connect/
-iceberg-bundle.zip
-
-# ── OS rác ──
-.DS_Store
-Thumbs.db
-
-# ── Keep important source files ──
-!*.sql
-!*.sh
-!*.py
-!*.xml
-!*.properties
-
-# Loại bỏ các thư mục JAR rác và backup
-student/iceberg-backup/
-student/trash_jars/
-# Chặn tất cả các file JAR khác để repo nhẹ hơn
-# (Các script setup_hrm.sh sẽ tự tải JAR khi chạy)
-*.jar
-lakehouse/jars/
-lakehouse/venv/
-lakehouse/logs/
-lakehouse/generated/
-student/venv/
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-# OS rác
-.DS_Store
-Thumbs.db
+**/__pycache__/
+**/venv/
